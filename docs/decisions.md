@@ -146,3 +146,38 @@ Designing the improved architecture that directly addresses every flaw identifie
 
 ---
 
+### 3. Automated AWS-native AI Security Review Pipeline
+
+**What this task is solving**
+
+TechHealth Inc. handles patient data, which means a misconfigured security group or an overly permissive IAM policy carries real risk. Manual review of CDK templates before deployment is error-prone and does not scale. This task introduces an automated pipeline that runs a security review against every synthesized CDK template before it is deployed, producing a durable, timestamped audit trail of every review.
+
+This task is consultant-initiated and falls outside the original project brief. The rationale and scope boundary are documented in First-off Decision 6.
+
+**What I did**
+
+Designed and built a seven-step automated pipeline, entirely AWS-native, that hooks into the CDK deployment process:
+
+1. The CDK deployment process uploads the synthesized CloudFormation template to a dedicated Amazon S3 bucket (CDK Templates Bucket).
+2. The S3 upload fires an Object Created event, which is picked up by an Amazon EventBridge rule.
+3. EventBridge triggers an AWS Lambda function (Security Reviewer).
+4. Lambda retrieves the template from S3 and submits it to Amazon Bedrock (Claude) alongside a structured security review prompt derived from the project brief's stated best practices: no public RDS access, SSH restricted to a single IP, least-privilege IAM, and proper network segmentation.
+5. Bedrock returns its security findings to Lambda.
+6. Lambda writes the findings as a JSON/PDF report to a second S3 bucket (Findings and Audit Reports).
+7. Lambda logs the full execution and audit trail to Amazon CloudWatch (Logs and Metrics).
+
+**Why I did it**
+
+- Using EventBridge to detect the S3 upload means the pipeline triggers automatically on every deployment with no manual step required. There is no way to accidentally skip the review.
+- Lambda keeps the review logic serverless and cost-effective. It only runs when a new template is uploaded.
+- Bedrock (Claude) was chosen over a rules-based linter because a large language model can reason about intent and context, not just pattern-match against known bad configurations. It can flag issues that a static tool would miss.
+- Separating the findings into their own S3 bucket from the templates bucket keeps the audit trail clean, independently queryable, and isolated from the deployment artefacts.
+- CloudWatch provides execution logs and metrics, meaning any Lambda failure or unexpected behaviour is immediately observable and alertable.
+
+**What I rejected**
+
+- A manual review step in the deployment process. This relies on the consultant remembering to run it and introduces human error into what should be a consistent gate.
+- Third-party static analysis tools (e.g. cfn-nag, Checkov). These are rules-based and can only flag patterns they have been explicitly programmed to recognise. They would not catch novel or context-specific misconfigurations that an LLM can reason about.
+- Giving the pipeline the ability to block deployments autonomously. This was explicitly ruled out in the scope boundary. The pipeline surfaces findings for human review; all accept/reject decisions remain with the consultant and are logged here.
+
+---
