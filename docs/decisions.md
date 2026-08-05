@@ -29,7 +29,7 @@ This enforces least-privilege network access and eliminates direct public exposu
 
 The original project brief assumed all EC2 instances would sit in a public subnet, so no NAT Gateway was required. With the move to a three-tier architecture, the app and database layers are in private subnets with no direct route to the internet.
 
-A NAT Gateway will be deployed in the public subnet to provide outbound internet access for instances in the private subnets — for example, to pull software updates or reach AWS service endpoints — without exposing them to inbound traffic from the internet. This is a direct consequence of the three-tier network decision above, not an optional addition.
+A NAT Gateway will be deployed in the public subnet to provide outbound internet access for instances in the private subnets (for example, to pull software updates or reach AWS service endpoints) without exposing them to inbound traffic from the internet. This is a direct consequence of the three-tier network decision above, not an optional addition.
 
 ### 4. Auto-Scaling Groups for Web and App Layers
 
@@ -43,7 +43,7 @@ The RDS instance will be deployed in Multi-AZ mode, with a standby replica in a 
 
 In the event of an infrastructure failure, scheduled maintenance, or AZ disruption, RDS will automatically fail over to the standby with no manual intervention required. This directly addresses the Disaster Recovery and Redundancy goals in the problem statement, and is particularly important given TechHealth Inc. stores patient data where availability and durability are critical.
 
-The app layer in AZ 2 communicates with the primary RDS instance in AZ 1, incurring a very small cross-AZ data transfer charge. A read replica in AZ 2 was considered but rejected — the added cost and operational overhead of maintaining a replica is not justified at this scale, and the cross-AZ charge remains negligible for the volume of traffic expected in this environment.
+The app layer in AZ 2 communicates with the primary RDS instance in AZ 1, incurring a very small cross-AZ data transfer charge. A read replica in AZ 2 was considered but rejected. The added cost and operational overhead of maintaining a replica is not justified at this scale, and the cross-AZ charge remains negligible for the volume of traffic expected in this environment.
 
 ### 6. Consultant-Initiated Scope Addition: Automated Security Review Pipeline
 
@@ -51,7 +51,7 @@ This addition falls outside the original project brief. It was identified and pr
 
 **Rationale**
 
-TechHealth Inc. handles patient data, which places elevated importance on network isolation, least-privilege access, and security group correctness. Manual review of infrastructure-as-code changes is error-prone and does not scale — particularly in a healthcare context where a misconfiguration (e.g. an overly permissive security group rule) carries outsized risk.
+TechHealth Inc. handles patient data, which places elevated importance on network isolation, least-privilege access, and security group correctness. Manual review of infrastructure-as-code changes is error-prone and does not scale, particularly in a healthcare context where a misconfiguration (e.g. an overly permissive security group rule) carries outsized risk.
 
 **What was added**
 
@@ -64,7 +64,7 @@ An automated, AWS-native security review pipeline that runs against every synthe
 
 **Scope boundary**
 
-This pipeline surfaces findings for human review — it does not autonomously block or approve deployments. All accept/reject decisions on flagged findings remain with the consultant and are logged in this decisions record. Automation eliminates the manual effort of running a review, not the human judgment of interpreting one.
+This pipeline surfaces findings for human review. It does not autonomously block or approve deployments. All accept/reject decisions on flagged findings remain with the consultant and are logged in this decisions record. Automation eliminates the manual effort of running a review, not the human judgment of interpreting one.
 
 This addition is treated as a first-class part of the target-state architecture and CDK deliverables, not a separate or optional add-on.
 
@@ -112,4 +112,37 @@ Establishing a clear visual representation of the current infrastructure to unde
 ---
 
 ### 2. Create the Target-State Architecture
+
+**What this task is solving**
+
+Designing the improved architecture that directly addresses every flaw identified in the current state diagram, and incorporates the first-off decisions made at the start of the project.
+
+**What I did**
+
+- Redesigned the VPC to span two Availability Zones (AZ1 and AZ2), each with a public and private subnet, replacing the flat all-public layout.
+- Introduced a three-tier network structure: a web layer in the public subnet, an app layer in the private subnet, and RDS in the private subnet behind the app layer.
+- Replaced the per-AZ ALBs in the current state with a single ALB at the VPC level, distributing traffic to ALB endpoints in each AZ.
+- Placed EC2 instances at the web and app layers inside Auto Scaling Groups in both AZs, replacing the standalone instances in the current state.
+- Deployed RDS in Multi-AZ mode with a Primary RDS in AZ1 and a Standby RDS in AZ2, connected via synchronous replication. The app layer in AZ2 routes to the Primary RDS in AZ1.
+- Added a NAT Gateway in the public subnet of AZ1 to provide outbound internet access for the private subnets without exposing them to inbound traffic.
+- Replaced the manual, overly permissive security groups with four least-privilege security groups:
+  - ALB SG: Inbound 80/443 from 0.0.0.0/0
+  - Web SG: Inbound 80/443 from ALB-SG only
+  - App SG: Inbound 8080/80 from Web-SG only
+  - RDS SG: Inbound 3306 from App-SG only
+
+**Why I did it**
+
+- The current state had all resources in public subnets with no network segmentation, meaning the RDS instance was directly reachable from the internet. Moving RDS and the app layer to private subnets eliminates that exposure entirely.
+- The current state security groups allowed inbound MySQL (port 3306) from 0.0.0.0/0 and SSH from 0.0.0.0/0, which are critical misconfigurations for a system handling patient data. The new security groups lock each layer down to traffic from the layer directly above it only.
+- A single ALB replacing the per-AZ ALBs is the correct AWS pattern. The ALB itself is a managed, multi-AZ service and does not need to be duplicated per AZ.
+- ASGs and Multi-AZ RDS address the High Availability, Scalability, Redundancy, and Disaster Recovery goals set out in the problem statement.
+
+**What I rejected**
+
+- Keeping any resources in a public subnet beyond the web layer and ALB. Placing the app layer or RDS in a public subnet, even with restrictive security groups, is not defensible for a healthcare application.
+- Per-AZ ALBs as shown in the current state. This is not how ALBs work and would be unnecessarily complex and costly.
+- A read replica in AZ2 for RDS. The cross-AZ charge from AZ2's app layer communicating with the Primary RDS in AZ1 is negligible, and a replica adds cost and operational overhead without meaningful benefit at this scale.
+
+---
 
