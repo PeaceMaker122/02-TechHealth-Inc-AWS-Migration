@@ -16,7 +16,7 @@ const app = new cdk.App();
 // using CDK_DEFAULT_ACCOUNT / CDK_DEFAULT_REGION so that cdk synth resolves
 // AZ lookups and other context queries correctly without needing AWS credentials.
 const env = {
-  account: '292133967819',
+  account: '104783764104',
   region: 'af-south-1',
 };
 
