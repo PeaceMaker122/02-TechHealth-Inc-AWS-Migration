@@ -73,7 +73,7 @@ export class InfrastructureStack extends cdk.Stack {
     // ALB Security Group — internet-facing, accepts HTTP and HTTPS from anywhere.
     const albSg = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {
       vpc,
-      description: 'ALB SG — inbound 80 and 443 from internet',
+      description: 'ALB SG - inbound 80 and 443 from internet',
       allowAllOutbound: true,
     });
     albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'HTTP from internet');
@@ -83,7 +83,7 @@ export class InfrastructureStack extends cdk.Stack {
     // The ALB forwards traffic to the web instances; no direct internet path.
     const webSg = new ec2.SecurityGroup(this, 'WebSecurityGroup', {
       vpc,
-      description: 'Web SG — inbound 80 and 443 from ALB SG only',
+      description: 'Web SG - inbound 80 and 443 from ALB SG only',
       allowAllOutbound: true,
     });
     webSg.addIngressRule(albSg, ec2.Port.tcp(80), 'HTTP from ALB SG');
@@ -93,7 +93,7 @@ export class InfrastructureStack extends cdk.Stack {
     // 8080 is the internal app server port; 80 provides a fallback path.
     const appSg = new ec2.SecurityGroup(this, 'AppSecurityGroup', {
       vpc,
-      description: 'App SG — inbound 80 and 8080 from Web SG only',
+      description: 'App SG - inbound 80 and 8080 from Web SG only',
       allowAllOutbound: true,
     });
     appSg.addIngressRule(webSg, ec2.Port.tcp(80), 'HTTP from Web SG');
@@ -104,7 +104,7 @@ export class InfrastructureStack extends cdk.Stack {
     // misconfiguration in the current state (decisions.md Task 2).
     const rdsSg = new ec2.SecurityGroup(this, 'RdsSecurityGroup', {
       vpc,
-      description: 'RDS SG — inbound 3306 from App SG only',
+      description: 'RDS SG - inbound 3306 from App SG only',
       allowAllOutbound: false, // RDS does not need outbound internet access
     });
     rdsSg.addIngressRule(appSg, ec2.Port.tcp(3306), 'MySQL from App SG');
