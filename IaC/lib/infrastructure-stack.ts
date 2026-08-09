@@ -10,8 +10,8 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 // InfrastructureStack — target-state three-tier architecture for TechHealth Inc.
 //
 // Layer summary (mirrors decisions.md Tasks 1 and 2):
-//   Web layer   — public subnets, ALB + Web ASG (EC2 t2.micro)
-//   App layer   — private subnets, App ASG (EC2 t2.micro)
+//   Web layer   — public subnets, ALB + Web ASG (EC2 t3.micro)
+//   App layer   — private subnets, App ASG (EC2 t3.micro)
 //   Data layer  — private subnets, RDS MySQL Multi-AZ
 //
 // Security group chain (least-privilege, per decisions.md First-off Decisions):
@@ -192,13 +192,14 @@ export class InfrastructureStack extends cdk.Stack {
     // needed — one per layer.
     //
     // Amazon Linux 2023 is the current recommended AMI for new EC2 deployments.
-    // t2.micro keeps cost in the free tier (decisions.md cost considerations).
-    // IMDSv2 is enforced (requireImdsv2: true) — IMDSv1 is a known attack vector
-    // that allows credential theft via SSRF against the instance metadata service.
+    // t3.micro is the current-generation burstable instance (replaces t2.micro).
+    // It runs on Nitro, costs ~10% less, earns CPU credits faster, and delivers
+    // more consistent baseline performance. IMDSv2 is enforced (requireImdsv2: true)
+    // to prevent credential theft via SSRF against the instance metadata service.
 
     // Web layer launch template — uses Web SG
     const webLaunchTemplate = new ec2.LaunchTemplate(this, 'WebLaunchTemplate', {
-      instanceType: new ec2.InstanceType('t2.micro'),
+      instanceType: new ec2.InstanceType('t3.micro'),
       machineImage: ec2.MachineImage.latestAmazonLinux2023(),
       role: ec2Role,
       securityGroup: webSg,
@@ -207,7 +208,7 @@ export class InfrastructureStack extends cdk.Stack {
 
     // App layer launch template — uses App SG
     const appLaunchTemplate = new ec2.LaunchTemplate(this, 'AppLaunchTemplate', {
-      instanceType: new ec2.InstanceType('t2.micro'),
+      instanceType: new ec2.InstanceType('t3.micro'),
       machineImage: ec2.MachineImage.latestAmazonLinux2023(),
       role: ec2Role,
       securityGroup: appSg,

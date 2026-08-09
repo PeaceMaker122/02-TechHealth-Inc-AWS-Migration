@@ -125,19 +125,17 @@ export class PipelineStack extends cdk.Stack {
     lambdaLogGroup.grantWrite(lambdaRole);
 
     // Allow Lambda to invoke Bedrock models.
-    // The ARN pattern covers all Claude models in af-south-1 under this account.
-    // If a specific model ID needs to be pinned later, replace the wildcard
-    // with the exact model ARN (e.g. anthropic.claude-3-5-sonnet-20241022-v2:0).
+    // Claude Sonnet 4.5 is the primary model; Claude Haiku 4.5 is the fallback.
+    // Both are accessed via the global cross-region inference profile because
+    // neither is available in-region for af-south-1. The global profile ARN
+    // uses the prefix 'global.' and routes to the nearest available region.
     lambdaRole.addToPolicy(new iam.PolicyStatement({
       sid: 'BedrockInvokeModel',
       effect: iam.Effect.ALLOW,
       actions: ['bedrock:InvokeModel'],
-      // Scoped to Claude models in this region and account.
-      // The wildcard covers model versions without requiring a code change
-      // when Anthropic releases a new version.
       resources: [
-        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0`,
-        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
+        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0`,
+        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`,
       ],
     }));
 

@@ -51,11 +51,15 @@ bedrock_client = boto3.client(
 TEMPLATES_BUCKET = os.environ['TEMPLATES_BUCKET_NAME']
 FINDINGS_BUCKET = os.environ['FINDINGS_BUCKET_NAME']
 
-# Bedrock model ID. Claude 3.5 Sonnet is preferred for its reasoning quality
-# on structured security analysis. Claude 3 Haiku is the fallback — it is
+# Bedrock model ID. Claude Sonnet 4.5 is preferred for its reasoning quality
+# on structured security analysis. Claude Haiku 4.5 is the fallback — it is
 # faster and cheaper but produces less detailed findings.
-BEDROCK_MODEL_ID = 'anthropic.claude-3-5-sonnet-20241022-v2:0'
-BEDROCK_MODEL_FALLBACK_ID = 'anthropic.claude-3-haiku-20240307-v1:0'
+#
+# Neither model is available in-region for af-south-1. Both are accessed via
+# the global cross-region inference profile, which routes to the nearest
+# available region. AWS confirmed support for af-south-1 via global CRIS.
+BEDROCK_MODEL_ID = 'global.anthropic.claude-sonnet-4-5-20250929-v1:0'
+BEDROCK_MODEL_FALLBACK_ID = 'global.anthropic.claude-haiku-4-5-20251001-v1:0'
 
 # Maximum template size to send to Bedrock in a single call.
 # CloudFormation templates for this project are well under 100 KB, but
@@ -242,8 +246,8 @@ def _invoke_bedrock(template_content: str, template_key: str) -> str | None:
     Submit the CloudFormation template to Bedrock (Claude) for security review.
     Returns the model's response text, or None if the call fails.
 
-    Uses the Messages API (anthropic.claude-3-5-sonnet). Falls back to
-    Claude 3 Haiku if the primary model call fails.
+    Uses the Messages API (global cross-region inference profile for Claude Sonnet 4.5).
+    Falls back to Claude Haiku 4.5 if the primary model call fails.
     """
     prompt_text = SECURITY_REVIEW_PROMPT.format(template_content=template_content)
 
