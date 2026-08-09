@@ -42,7 +42,10 @@ logger.setLevel(logging.INFO)
 s3_client = boto3.client('s3')
 bedrock_client = boto3.client(
     'bedrock-runtime',
-    region_name=os.environ.get('BEDROCK_REGION', 'af-south-1'),
+    # Global cross-region inference profiles (global.anthropic.*) must be called
+    # via the us-east-1 endpoint — this is the routing entry point for global CRIS
+    # regardless of which region the Lambda itself runs in.
+    region_name='us-east-1',
 )
 
 # ---------------------------------------------------------------------------

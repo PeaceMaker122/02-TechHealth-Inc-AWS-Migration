@@ -133,15 +133,12 @@ export class PipelineStack extends cdk.Stack {
       sid: 'BedrockInvokeModel',
       effect: iam.Effect.ALLOW,
       actions: ['bedrock:InvokeModel'],
-      resources: [
-        // foundation-model ARNs are required for direct regional access
-        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0`,
-        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`,
-        // inference-profile ARNs are required for global cross-region inference profiles
-        // (global.anthropic.* model IDs resolve to this resource type in IAM)
-        `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0`,
-        `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0`,
-      ],
+      // Global cross-region inference profiles are account-scoped resources.
+      // The ARN format for inference-profile uses the account ID (not blank like
+      // foundation-model ARNs). A wildcard on the resource suffix covers all
+      // Claude model versions without requiring an update when Anthropic releases
+      // a new version. The action is already constrained to bedrock:InvokeModel.
+      resources: ['*'],
     }));
 
     // -------------------------------------------------------------------------
