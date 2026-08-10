@@ -181,3 +181,123 @@ Designed and built a seven-step automated pipeline, entirely AWS-native, that ho
 - Giving the pipeline the ability to block deployments autonomously. This was explicitly ruled out in the scope boundary. The pipeline surfaces findings for human review; all accept/reject decisions remain with the consultant and are logged here.
 
 ---
+
+### 4. CDK Project Build and Deployment: Issues Encountered and Resolved
+
+**What this task is solving**
+
+Building the CDK TypeScript project, deploying both stacks to AWS (af-south-1, account 104783764104), and running an end-to-end test of the security review pipeline. This section documents every problem encountered during the build and deployment phases and exactly how each was resolved.
+
+---
+
+**Issue 1: CDK init generated wrong file names**
+
+CDK init named the entry point `bin/ia_c.ts` and the stack stub `lib/ia_c-stack.ts` based on the folder name `IaC`. These names did not match the planned structure (`bin/app.ts`, `lib/infrastructure-stack.ts`, `lib/pipeline-stack.ts`).
+
+**Fix:** Deleted both generated files and created the correct files manually. Updated `cdk.json` to point at `bin/app.ts` instead of `bin/ia_c.ts`. Updated `package.json` project name from `ia_c` to `techhealth-aws-migration` and removed the auto-generated `bin` entry.
+
+---
+
+**Issue 2: CDK deprecated healthCheck API on AutoScalingGroup**
+
+Using `healthCheck: autoscaling.HealthCheck.elb(...)` (the documented API) produced a deprecation warning on CDK 2.1030.0 and caused a TypeScript type error. The new API expects `healthChecks` (plural, a `HealthChecks` class instance, not a `HealthCheck` array).
+
+**Fix:** Replaced both ASG health check properties with the current API:
+- Web ASG: `healthChecks: autoscaling.HealthChecks.withAdditionalChecks({ additionalTypes: [autoscaling.AdditionalHealthCheckType.ELB], gracePeriod: ... })`
+- App ASG: `healthChecks: autoscaling.HealthChecks.ec2({ gracePeriod: ... })`
+
+---
+
+**Issue 3: SecurityGroup on ASG not allowed when LaunchTemplate is set**
+
+Setting `securityGroup` directly on the `AutoScalingGroup` construct while also setting `launchTemplate` threw a CDK ValidationError at synth time: *"Setting 'securityGroup' must not be set when 'launchTemplate' or 'mixedInstancesPolicy' is set."* When a LaunchTemplate is used, the security group must be specified on the LaunchTemplate, not the ASG.
+
+**Fix:** Removed the shared single `LaunchTemplate` and created two separate launch templates: `WebLaunchTemplate` (with `webSg`) and `AppLaunchTemplate` (with `appSg`). Each ASG references its own launch template. This is also the architecturally correct pattern since the web and app layers have different security groups.
+
+---
+
+**Issue 4: Wrong AWS account (deploy needed to go to the correct AWS account)**
+
+The CDK app entry point in `bin/app.ts` had the account hardcoded as a different AWS account. Bootstrap and deploy would have landed in the wrong account.
+
+**Fix:** Checked all AWS CLI profiles (`aws configure list-profiles`, then `aws sts get-caller-identity` for each). Identified the correct account under the correct profile. Updated `bin/app.ts` to `account: 'correct one'`. Deleted the stale `cdk.context.json` (it cached AZ lookups for the old account).
+
+---
+
+**Issue 5: Bedrock AccessDeniedException due to inference-profile IAM resource type**
+
+After the pipeline stack deployed and the first end-to-end test was run, the Lambda received `AccessDeniedException` from Bedrock. The IAM policy had the Bedrock resource ARNs as `arn:aws:bedrock:{region}::foundation-model/...`, but global cross-region inference profiles (model IDs prefixed with `global.`) resolve to `arn:aws:bedrock:{region}:{account}:inference-profile/...` at IAM evaluation time, which is a different resource type.
+
+**Fix (attempt 1):** Added `inference-profile` ARNs alongside the existing `foundation-model` ARNs in the IAM policy. This was not sufficient. The second invocation showed the error now referenced `arn:aws:bedrock:::foundation-model/...` (region and account blank), indicating boto3 was constructing the ARN incorrectly when calling the global profile endpoint.
+
+**Fix (attempt 2, final):** Two changes applied together:
+1. Replaced the scoped Bedrock resource ARNs in the IAM policy with `'*'`. The action is already constrained to `bedrock:InvokeModel`, so this is least-privilege at the action level, which is the correct pattern for Bedrock inference profiles.
+2. Changed the boto3 `bedrock-runtime` client to use `region_name='us-east-1'` instead of `af-south-1`. Global cross-region inference profiles must be called via the `us-east-1` endpoint regardless of which region the Lambda runs in. This is the routing entry point for global CRIS.
+
+After both fixes were deployed and the test re-run, the pipeline completed successfully: template uploaded → EventBridge triggered → Lambda invoked → Bedrock reviewed → findings report written to S3.
+
+---
+
+**Outcome**
+
+Both stacks deployed successfully to `af-south-1`:
+
+| Stack | Resources | Deploy time |
+|---|---|---|
+| TechHealthInfrastructureStack | 50/50 | 13m 43s |
+| TechHealthPipelineStack | 20/20 | 1m 54s |
+
+End-to-end pipeline test passed. The Bedrock security review of `TechHealthInfrastructureStack.template.json` returned **Overall Risk: HIGH**, with two genuine findings (web tier in public subnets, shared IAM role across tiers) and seven numbered recommendations. These findings are logged as open items in `docs/todo.md`.
+
+### 5. Security Pipeline Findings: Results and Intentional Decisions
+
+**What this task is solving**
+
+After both stacks were deployed and the end-to-end pipeline test was run, the automated security reviewer returned a HIGH risk rating with two genuine findings against the infrastructure stack. This task documents those findings, the rationale for leaving them in place, and what they demonstrate about the pipeline's effectiveness.
+
+---
+
+**The findings**
+
+The Bedrock security review of `TechHealthInfrastructureStack.template.json` produced the following results:
+
+| Check | Result |
+|---|---|
+| RDS Public Access | ✅ PASS |
+| SSH Access Restriction | ✅ PASS |
+| Least-Privilege IAM | ⚠️ FAIL |
+| Network Segmentation | ⚠️ FAIL |
+| **Overall Risk** | **HIGH** |
+
+**Finding 1: Network Segmentation (FAIL)**
+
+The web-layer Auto Scaling Group (`WebAutoScalingGroupASG`) is deployed in public subnets (`MapPublicIpOnLaunch: true`, routes to Internet Gateway). For a healthcare workload, only the ALB should sit in public subnets. Web EC2 instances should be in private subnets, receiving traffic exclusively from the ALB via the Web SG. Placing application instances directly in public subnets increases the attack surface.
+
+**Finding 2: Least-Privilege IAM (FAIL)**
+
+The web and app layers share a single IAM role (`Ec2InstanceRole`). Best practice, particularly for healthcare, is separate roles per tier, with the Secrets Manager grant (RDS credentials) scoped exclusively to the app-layer role. The web layer has no business accessing database credentials directly.
+
+---
+
+**Why these findings are not being physically corrected in this project**
+
+These issues were deliberately left in place. The decision is not an oversight. It is an intentional choice made to preserve the authenticity and demonstrable value of the security review pipeline.
+
+The purpose of the pipeline is to catch exactly these kinds of issues: real architectural decisions that violate AWS best practices and carry measurable risk in a healthcare context. If the findings were corrected before the project was reviewed, the pipeline would produce a clean report and the viewer would have no way to verify that it actually works.
+
+Leaving the findings in place achieves the opposite. Anyone reviewing this project can see the full pipeline trace, including the template upload, the Lambda invocation, the Bedrock response, and the written findings report, and independently verify that the pipeline correctly identified two genuine security misconfigurations in a live, deployed stack. The pipeline's ability to reason about intent and produce specific, resource-level findings (referencing logical IDs, subnet route tables, and IAM policy documents by name) is more compelling evidence when the findings are real.
+
+In a production engagement, both issues would be corrected immediately:
+- Web ASG moved to private subnets, with only the ALB remaining in public subnets
+- Web and app IAM roles separated, with Secrets Manager access scoped to the app role only
+
+For the purposes of this project, they serve as proof that the pipeline does what it was designed to do.
+
+---
+
+**What this demonstrates**
+
+- The EventBridge → Lambda → Bedrock → S3 pipeline triggers automatically on every template upload with no manual intervention
+- The LLM-based reviewer can reason about network topology (subnet route tables, gateway associations) and IAM structure beyond what a rules-based static linter would catch
+- The findings are specific and actionable: resource logical IDs are named, the exact misconfiguration is described, and numbered remediation steps are provided
+- The durable timestamped report in the findings S3 bucket creates an audit trail that satisfies the project brief's requirement for traceability of infrastructure changes
