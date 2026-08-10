@@ -141,6 +141,22 @@ export class PipelineStack extends cdk.Stack {
       resources: ['*'],
     }));
 
+    // Bedrock may use AWS Marketplace permissions to complete the first-time
+    // subscription for third-party Anthropic models. These permissions are
+    // required by the Lambda execution role during the initial model invocation.
+    // They are not used to administer other Marketplace products because this
+    // role is only used by the security-reviewer Lambda.
+    lambdaRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'BedrockMarketplaceSubscription',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'aws-marketplace:ViewSubscriptions',
+        'aws-marketplace:Subscribe',
+        'aws-marketplace:Unsubscribe',
+      ],
+      resources: ['*'],
+    }));
+
     // -------------------------------------------------------------------------
     // Lambda Function — Security Reviewer
     // -------------------------------------------------------------------------

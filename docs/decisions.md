@@ -301,3 +301,35 @@ For the purposes of this project, they serve as proof that the pipeline does wha
 - The LLM-based reviewer can reason about network topology (subnet route tables, gateway associations) and IAM structure beyond what a rules-based static linter would catch
 - The findings are specific and actionable: resource logical IDs are named, the exact misconfiguration is described, and numbered remediation steps are provided
 - The durable timestamped report in the findings S3 bucket creates an audit trail that satisfies the project brief's requirement for traceability of infrastructure changes
+
+---
+
+### 6. Security Review Pipeline: Bedrock Access Issues and Resolution
+
+**What this task is solving**
+
+Completing a reliable end-to-end test of the automated security review pipeline after the infrastructure had been torn down and recreated. The pipeline worked during its initial test, although the exact reason that first invocation succeeded was not established. Subsequent testing exposed several account and access prerequisites that had to be resolved before the pipeline could complete again.
+
+**Issues encountered and resolutions**
+
+1. **Anthropic first-time-use form was incomplete**
+
+   Bedrock initially returned an error stating that the Anthropic model use-case details had not been submitted for the account. The Anthropic first-time-use form was completed in the Bedrock console, after which this error was resolved.
+
+2. **AWS Marketplace permissions were missing from the Lambda role**
+
+   The next invocation failed because the Lambda execution role was not authorised to perform the AWS Marketplace actions required to activate the Anthropic model. The CDK pipeline stack was updated to grant the security reviewer role `aws-marketplace:ViewSubscriptions`, `aws-marketplace:Subscribe`, and `aws-marketplace:Unsubscribe`, in addition to its Bedrock invocation permission. The pipeline stack was then synthesised and redeployed.
+
+3. **Subscription propagation and retry**
+
+   Bedrock model access required time to propagate after the use-case form and IAM changes were completed. The template was uploaded again using a new S3 object key so that a fresh S3 Object Created event would trigger the pipeline.
+
+**Outcome**
+
+The retry completed successfully. The S3 upload triggered EventBridge, EventBridge invoked Lambda, Lambda retrieved the template, Bedrock returned a security review, and Lambda wrote the findings report to the findings bucket. This confirmed that the complete pipeline works end to end.
+
+The report identified a genuine network-segmentation issue, with the web Auto Scaling Group deployed in public subnets, and rated the overall risk as MEDIUM in the Bedrock findings. The report also confirmed that RDS public access, SSH exposure, and least-privilege IAM passed the configured checks.
+
+The current report is written as a structured JSON file. JSON is suitable for machine processing and audit storage, but it is less readable for human reviewers. It can be easily converted into a more readable Markdown document using a JSON-to-Markdown converter. A future improvement could also update the Lambda to write Markdown directly.
+
+A copy of the generated report has been uploaded to the repository under `AI-Security-Review-Pipeline-Reports/` so reviewers can inspect the actual Bedrock output and verify the pipeline result.
