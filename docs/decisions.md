@@ -247,7 +247,7 @@ Both stacks deployed successfully to `af-south-1`:
 | TechHealthInfrastructureStack | 50/50 | 13m 43s |
 | TechHealthPipelineStack | 20/20 | 1m 54s |
 
-End-to-end pipeline test passed. The Bedrock security review of `TechHealthInfrastructureStack.template.json` returned **Overall Risk: HIGH**, with two genuine findings (web tier in public subnets, shared IAM role across tiers) and seven numbered recommendations. These findings are logged as open items in `docs/todo.md`.
+End-to-end pipeline test passed. The Bedrock security review of `TechHealthInfrastructureStack.template.json` returned **Overall Risk: HIGH**, with two genuine findings (web tier in public subnets, shared IAM role across tiers) and seven numbered recommendations. These findings are documented in Task 5 of this decisions log and in the report under `AI-Security-Review-Pipeline-Reports/`.
 
 ### 5. Security Pipeline Findings: Results and Intentional Decisions
 
