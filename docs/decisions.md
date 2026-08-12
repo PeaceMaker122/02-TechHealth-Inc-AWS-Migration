@@ -333,3 +333,38 @@ The report identified a genuine network-segmentation issue, with the web Auto Sc
 The current report is written as a structured JSON file. JSON is suitable for machine processing and audit storage, but it is less readable for human reviewers. It can be easily converted into a more readable Markdown document using a JSON-to-Markdown converter. A future improvement could also update the Lambda to write Markdown directly.
 
 A copy of the generated report has been uploaded to the repository under `AI-Security-Review-Pipeline-Reports/` so reviewers can inspect the actual Bedrock output and verify the pipeline result.
+
+---
+
+### 7. Evidence Collection and Testing Screenshots
+
+**What this task is solving**
+
+Collecting clear, reviewable evidence that the infrastructure was deployed correctly, the security controls are configured as designed, the AI security review pipeline works end to end, and the testing requirements in the project brief were completed.
+
+**What I did**
+
+- Captured the deployed CloudFormation stacks and their outputs.
+- Captured the successful EC2-to-RDS connectivity test from an app-layer instance using SSM Session Manager and credentials retrieved from Secrets Manager.
+- Captured the security groups for the ALB, web, app, and RDS layers.
+- Captured RDS configuration, including its private placement and Multi-AZ deployment.
+- Captured network-isolation evidence for the RDS and app layers, Internet Gateway, and NAT Gateway.
+- Captured Auto Scaling Group configuration and ALB listener and target health evidence.
+- Captured the security review pipeline stack, the template upload to S3, the EventBridge rule and target, Lambda execution, CloudWatch logs, and the resulting findings report.
+- Stored the evidence in the repository under the `screenshots/Diagrams/`, `screenshots/Infrastructure/`, and `screenshots/AI-Security-Review-Pipeline/` folders.
+- Stored a copy of the generated Bedrock report under `AI-Security-Review-Pipeline-Reports/`.
+
+**Why I did it**
+
+The project brief requires evidence of successful EC2-to-RDS connectivity, working security-group configurations, network isolation, and successful infrastructure deployment and destruction. Screenshots make the implementation independently verifiable and show the relationship between the intended architecture, the deployed AWS resources, and the observed test results.
+
+The pipeline evidence also demonstrates the complete S3 → EventBridge → Lambda → Bedrock → S3 flow. The CloudWatch logs and findings report provide an audit trail rather than relying only on the infrastructure code to claim that the process worked.
+
+Sensitive information was not included in the evidence. Database passwords and secret values were kept out of screenshots, and account-specific information was redacted where it was not needed to prove the result.
+
+**What I rejected**
+
+- Relying only on the architecture diagrams or CloudFormation deployment screenshots without showing that the deployed resources were tested.
+- Treating the Bedrock findings as the only evidence of the security-group and network configuration. The AWS console screenshots and connectivity test provide direct supporting evidence.
+- Including database credentials, secret values, or unnecessary account information in the repository.
+- Capturing every available AWS console page. The evidence was limited to screenshots that directly support the project requirements and the pipeline execution story.
