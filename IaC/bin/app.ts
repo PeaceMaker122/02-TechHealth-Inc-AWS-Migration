@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 // CDK app entry point.
-// This file is the equivalent of a Terraform root module — it instantiates every
-// stack and wires them together. The env block pins deployment to the specific
-// AWS account and region rather than relying on whatever the CLI is currently
-// configured to, which avoids accidental cross-account or cross-region deploys.
+// This file is the equivalent of a Terraform root module, instantiating every
+// stack and wiring them together. The account and region are obtained from the
+// active CDK/AWS environment so this public repository contains no account ID.
 
 import * as cdk from 'aws-cdk-lib';
 import { InfrastructureStack } from '../lib/infrastructure-stack';
@@ -12,12 +11,17 @@ import { PipelineStack } from '../lib/pipeline-stack';
 
 const app = new cdk.App();
 
-// Shared environment config — account and region are hardcoded here rather than
-// using CDK_DEFAULT_ACCOUNT / CDK_DEFAULT_REGION so that cdk synth resolves
-// AZ lookups and other context queries correctly without needing AWS credentials.
+// Shared environment config. CDK sets these values from the active AWS profile
+// when a command is run with --profile. A default region is retained for local
+// convenience, while the account must always come from the active credentials.
+const account = process.env.CDK_DEFAULT_ACCOUNT;
+if (!account) {
+  throw new Error('CDK_DEFAULT_ACCOUNT is not set. Run the CDK command with an authenticated AWS profile.');
+}
+
 const env = {
-  account: '104783764104',
-  region: 'af-south-1',
+  account,
+  region: process.env.CDK_DEFAULT_REGION ?? 'af-south-1',
 };
 
 // Target-state three-tier infrastructure (VPC, ALB, ASGs, RDS).

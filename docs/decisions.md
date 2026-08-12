@@ -186,7 +186,7 @@ Designed and built a seven-step automated pipeline, entirely AWS-native, that ho
 
 **What this task is solving**
 
-Building the CDK TypeScript project, deploying both stacks to AWS (af-south-1, account 104783764104), and running an end-to-end test of the security review pipeline. This section documents every problem encountered during the build and deployment phases and exactly how each was resolved.
+Building the CDK TypeScript project, deploying both stacks to AWS in the configured region, and running an end-to-end test of the security review pipeline. This section documents every problem encountered during the build and deployment phases and exactly how each was resolved.
 
 ---
 
@@ -226,9 +226,9 @@ The CDK app entry point in `bin/app.ts` had the account hardcoded as a different
 
 **Issue 5: Bedrock AccessDeniedException due to inference-profile IAM resource type**
 
-After the pipeline stack deployed and the first end-to-end test was run, the Lambda received `AccessDeniedException` from Bedrock. The IAM policy had the Bedrock resource ARNs as `arn:aws:bedrock:{region}::foundation-model/...`, but global cross-region inference profiles (model IDs prefixed with `global.`) resolve to `arn:aws:bedrock:{region}:{account}:inference-profile/...` at IAM evaluation time, which is a different resource type.
+After the pipeline stack deployed and the first end-to-end test was run, the Lambda received `AccessDeniedException` from Bedrock. The IAM policy had the Bedrock resource ARNs as `arn:aws:bedrock:{region}::foundation-model/...`, but global cross-region inference profiles (model IDs prefixed with `global.`) resolve to `arn:aws:bedrock:{region}:{account-id}:inference-profile/...` at IAM evaluation time, which is a different resource type.
 
-**Fix (attempt 1):** Added `inference-profile` ARNs alongside the existing `foundation-model` ARNs in the IAM policy. This was not sufficient. The second invocation showed the error now referenced `arn:aws:bedrock:::foundation-model/...` (region and account blank), indicating boto3 was constructing the ARN incorrectly when calling the global profile endpoint.
+**Fix (attempt 1):** Added `inference-profile` ARNs alongside the existing `foundation-model` ARNs in the IAM policy. This was not sufficient. The second invocation showed the error now referenced `arn:aws:bedrock:{region}::{foundation-model}/...` (region and account blank), indicating boto3 was constructing the ARN incorrectly when calling the global profile endpoint.
 
 **Fix (attempt 2, final):** Two changes applied together:
 1. Replaced the scoped Bedrock resource ARNs in the IAM policy with `'*'`. The action is already constrained to `bedrock:InvokeModel`, so this is least-privilege at the action level, which is the correct pattern for Bedrock inference profiles.
