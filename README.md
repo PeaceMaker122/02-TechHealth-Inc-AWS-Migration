@@ -238,29 +238,103 @@ Located in [`screenshots/Diagrams/`](screenshots/Diagrams/):
 
 ### Infrastructure evidence
 
-Located in [`screenshots/Infrastructure/`](screenshots/Infrastructure/):
+The following screenshots document the deployed infrastructure, its security boundaries, and the validation performed during the test environment. The original files are available in [`screenshots/Infrastructure/`](screenshots/Infrastructure/).
 
-- CloudFormation stack deployment.
-- EC2-to-RDS connectivity through SSM.
-- ALB, web, app, and RDS security groups.
-- RDS configuration and private placement.
-- RDS and app network isolation.
-- Internet Gateway and NAT Gateway routing.
-- Auto Scaling Group configuration.
-- ALB listener and target status.
-- Secrets Manager configuration.
-- CloudFormation outputs.
+#### 1. Infrastructure stack
+
+![Infrastructure CloudFormation stack](screenshots/Infrastructure/01-Infrastructure-Stack.png)
+
+#### 2. EC2-to-RDS connectivity through SSM
+
+![EC2 to RDS connectivity test](screenshots/Infrastructure/02-EC2-to-RDS-Connectivity.png)
+
+#### 3. ALB security group
+
+![ALB security group](screenshots/Infrastructure/03-ALB-Security-Group.png)
+
+#### 4. Web EC2 security group
+
+![Web EC2 security group](screenshots/Infrastructure/04-WebEC2-Security-Group.png)
+
+#### 5. App EC2 security group
+
+![App EC2 security group](screenshots/Infrastructure/05-AppEC2-Security-Group.png)
+
+#### 6. RDS security group
+
+![RDS database security group](screenshots/Infrastructure/06.1-RDS-Database-Security-Group.png)
+
+#### 7. RDS configuration
+
+![RDS configuration](screenshots/Infrastructure/06.2-RDS-Configuration.png)
+
+#### 8. RDS network isolation
+
+![RDS network isolation](screenshots/Infrastructure/07-RDS-Network-Isolation.png)
+
+#### 9. App-layer network isolation
+
+![App layer network isolation](screenshots/Infrastructure/08-App-Layer-Network-Isolation.png)
+
+#### 10. Internet Gateway routing
+
+![Internet Gateway network isolation](screenshots/Infrastructure/09-IGW-Network-Isolation.png)
+
+#### 11. NAT Gateway routing
+
+![NAT Gateway network isolation](screenshots/Infrastructure/10-NAT-GW-Network-Isolation.png)
+
+#### 12. Auto Scaling Groups
+
+![Auto Scaling Groups](screenshots/Infrastructure/11-Auto-Scaling-Groups.png)
+
+#### 13. ALB listener and target health
+
+![ALB listener and target health](screenshots/Infrastructure/12-ALB-Listener-and-Target.png)
+
+#### 14. Secrets Manager
+
+![Secrets Manager configuration](screenshots/Infrastructure/13-Secrets-Manager.png)
+
+#### 15. CloudFormation outputs
+
+![CloudFormation outputs](screenshots/Infrastructure/14-CloudFormation-Outputs.png)
 
 ### Pipeline evidence
 
-Located in [`screenshots/AI-Security-Review-Pipeline/`](screenshots/AI-Security-Review-Pipeline/):
+The pipeline screenshots show the complete event-driven review flow from template upload through findings generation. The original files are available in [`screenshots/AI-Security-Review-Pipeline/`](screenshots/AI-Security-Review-Pipeline/).
 
-- Pipeline stack deployment.
-- Template upload to S3.
-- EventBridge event pattern and target.
-- Lambda execution.
-- CloudWatch logs.
-- Findings report and report details.
+#### 1. Pipeline stack
+
+![AI security review pipeline stack](screenshots/AI-Security-Review-Pipeline/02-AI-Security-Review-Pipeline-Stack.png)
+
+#### 2. Template uploaded to S3
+
+![CloudFormation template uploaded to S3](screenshots/AI-Security-Review-Pipeline/03-Template-Uploaded-to-S3.png)
+
+#### 3. EventBridge event pattern
+
+![EventBridge trigger event pattern](screenshots/AI-Security-Review-Pipeline/04.1-EventBridge-Trigger-Event-Pattern.png)
+
+#### 4. EventBridge target
+
+![EventBridge trigger target](screenshots/AI-Security-Review-Pipeline/04.2-EventBridge-Trigger-Target.png)
+
+#### 5. Lambda execution
+
+![Security reviewer Lambda execution](screenshots/AI-Security-Review-Pipeline/05-Lambda-Execution.png)
+
+#### 6. CloudWatch execution logs
+
+![CloudWatch execution logs](screenshots/AI-Security-Review-Pipeline/06-CloudWatch-Execution-Logs.png)
+
+#### 7. Security findings report
+
+![Security findings report](screenshots/AI-Security-Review-Pipeline/07.1-Security-Findings-Report.png)
+
+#### 8. Security findings report details
+
+![Security findings report details](screenshots/AI-Security-Review-Pipeline/07.2-Security-Findings-Report-DETAILS.png)
 
 These materials provide direct evidence of the deployed resources and the end-to-end review flow rather than relying only on source code or architecture diagrams.
 
